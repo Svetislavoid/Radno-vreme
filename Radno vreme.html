@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+	<title>Radno vreme</title>
+<!-- Qunit -->
+    <link rel="stylesheet" type="text/css" href="Qunit-1.15/qunit-1.15.css" />
+    <script type="text/javascript" src="Qunit-1.15/qunit-1.15.js"></script>
+<!-- jQuery -->
+    <script type="text/javascript" src="jquery-2.1.1.min.js"></script>
+</head>
+
+<body>
+
+    <div id="qunit"></div>
+    <div id="qunit-fixture"></div>
+
+    <style type="text/css">
+        #container {
+            border: 1px solid grey;
+            width: 30%;
+            padding: 20px;
+            background: lime;
+        }
+        #buttons {
+            width: 100%;
+        }
+        #data, #data th, #data td {
+            border: 1px solid grey;
+        }
+        #data {
+            margin-top: 15px;
+            width: 100%;
+        }
+        a {
+            text-decoration: none;
+        }
+        #pagination {
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+
+    <script type="text/javascript">
+        (function($) {
+
+            /**
+             * Qunit test
+             */
+
+            QUnit.test("Testiranje početnih vrednosti promenljivih", function(assert) {
+
+                assert.equal(millisecondsTotal, 0, "Očekujemo millisecondsTotal = 0"); var i=1;
+                assert.ok(start, "Očekujemo start = true"); i++;
+                
+                
+                expect(i);
+            });
+
+            /**
+             * Qunit test end
+             */
+
+            var time,
+                milliseconds,
+                millisecondsStart,
+                millisecondsStop,
+                millisecondsCycle,
+                millisecondsTotal = 0,
+                vremeRada,
+                ukupnoVremeRada,
+                start = true;
+                rowNumber = 1,
+                tableRows = 1, // Broj redova tabele koja se generiše
+                rowsGroup = 1,
+                navigating = false;
+
+            /**
+             * Funkcija koja pravi string za trenutno vreme
+             */
+
+            function getTime() {
+                var today = new Date(),
+                    hours = today.getHours(),
+                    minutes = today.getMinutes(),
+                    seconds = today.getSeconds();
+
+                milliseconds = today.getTime(),
+                minutes = fixValue(minutes);
+                seconds = fixValue(seconds);
+                time = hours + ":" + minutes + ":" + seconds;
+            }
+
+            function fixValue(value) {
+                if (value < 10) {
+                    value = "0" + value;
+                }
+                return value;
+            }
+
+            /**
+             * Funkcija koja pravi string za proteklo vreme
+             */
+
+            function getTimeString(milliseconds) {
+                var seconds,
+                    minutes,
+                    hours,
+                    days,
+                    workingHours;
+
+                seconds = Math.round(milliseconds/1000);
+                if (seconds > 60) {
+                    seconds = seconds%60;
+                }
+                seconds = fixValue(seconds);
+                minutes = Math.floor((milliseconds/60000));
+                if (minutes > 60) {
+                    minutes = minutes%60;
+                }
+                minutes = fixValue(minutes);
+                hours = Math.floor((milliseconds/3600000));
+                if (hours > 24) {
+                    hours = hours%24;
+                    days = Math.floor(hours/24);
+                }
+                if (days) {
+                    workingHours = days + 'd ' + hours + ':' + minutes + ':' + seconds;
+                } else {
+                    workingHours = hours + ':' + minutes + ':' + seconds;
+                }
+
+                return workingHours;
+            }
+
+            /**
+             * Funkcija koja kreira tabelu
+             */
+
+            function createTable(rows) {
+                for (var i = 0; i < rows; i++) {
+                    $('#tableBody').append('<tr id="row' + rowNumber + '" class="rowsGroup-' + rowsGroup + '"><td id="cell' + rowNumber + '-0" style="text-align: center;">' + rowNumber + '.</td><td id="cell' + rowNumber + '-1" class="dataCell"></td><td id="cell' + rowNumber + '-2" class="dataCell"></td><td id="cell' + rowNumber + '-3" class="dataCell"></td></tr>');
+                    rowNumber++;
+                }
+            } 
+
+            $(document).ready(function() {
+
+                $('#reset').attr('disabled','disabled'); // reset dugme je na početku onemogućeno jer u tabeli nema podataka
+                createTable(tableRows);
+                rowNumber = 1; // rowNumber vraćamo na 1 da bi se podaci upisivali od prvog reda
+
+                $('#start-stop').click(function(){
+
+                    getTime(); // dodeljujemo vremenski string promenljivoj time
+                    
+                    if (!((rowNumber-1)%tableRows) && rowNumber!=1 && start == true) { // slučaj kada su svi prikazani redovi popunjeni, poslednja dva uslova služe da se izbegne pokretanje koda kada je rowNumber=1 i da se izbegne ponovno pokretanje koda kada se klikne stop
+                        
+                        if (rowsGroup == 1) { // ukoliko prvi put prelazimo na novu stranu (tj. stranu 2), postavi Previous i Next linkove
+                            $('#pagination').append('<a href="#" id="previous">Previous </a><span id="pages"></span><a href="#" id="next">Next</a>');
+                            $('#pages').append('<a href="#" id="a1">1 </a>');
+                        } else {
+                            $('#a' + rowsGroup).css({'pointer-events':'auto','color':''}).removeClass('currentPage').addClass('previousPage'); // omogućavanje linka ka prethodnoj strani
+                            $('#a' + (rowsGroup-1)).css({'pointer-events':'auto','color':''}).removeClass('previousPage');
+                        }
+
+                        if (rowsGroup > 5) { // ako ima više od 6 strana zameni srednje linkove sa ...
+                            $('#a' + (rowsGroup - 2)).css('display','none');
+                            $('#dots').remove();
+                            $('#a3').after('<span id="dots"> ... </span>')
+                        }
+
+                        $('#tableBody tr').css('display','none'); // popunjeni redovi se ne prikazuju
+                        rowsGroup++; // novoformirani redovi pripadaju novoj grupi 
+                        createTable(tableRows); // pravimo nove redove koji mogu da se popunjavaju
+                        rowNumber = rowNumber - tableRows;
+                        $('#pages').append('<a href="#" id="a' + rowsGroup + '">' + rowsGroup + ' </a>'); // postavi link ka trenutnoj strani
+                        if (!navigating) {
+                            $('#a' + rowsGroup).css({'pointer-events':'none','color':'grey'}).addClass('currentPage'); // onemogućavanje linka ka trenutnoj strani
+                            $('#next').css({'pointer-events':'none','color':'grey'}); // onemogućavanje Next linka
+                        } else {
+                            $('.rowsGroup-' + rowsGroup).css('display','none');
+                            $('.rowsGroup-' + parseInt($('.currentPage').text())).css('display','');
+                        }
+                    }
+
+                    $('#pages a').off('click').click(function(){ // mora da se koristi off da se ne bi pokretalo više puta
+                        $('#pages a').css({'pointer-events':'auto','color':''}).removeClass('currentPage').removeClass('previousPage').removeClass('nextPage'); // omogućavamo sve linkove
+                        $(this).css({'pointer-events':'none','color':'grey'}).addClass('currentPage'); // onemogućavamo kliknuti link
+                        var currentPageNumber = parseInt($(this).text());
+                        
+                        if (currentPageNumber - 1) {
+                            $('#a' + (currentPageNumber - 1)).addClass('previousPage');
+                        }
+                        if (currentPageNumber + 1) {
+                            $('#a' + (currentPageNumber + 1)).addClass('nextPage');
+                        }
+
+                        if ($('#a' + rowsGroup).css('pointer-events') == 'none') {
+                            $('#next').css({'pointer-events':'none','color':'grey'}); // onemogućavanje Next linka
+                            $('#previous').css({'pointer-events':'auto','color':''}); // omogućavanje Previous linka
+                        } else if ($('#a1').css('pointer-events') == 'none') {
+                            $('#previous').css({'pointer-events':'none','color':'grey'}); // onemogućavanje Next linka
+                            $('#next').css({'pointer-events':'auto','color':''}); // omogućavanje Previous linka
+                        } else {
+                            $('#previous').css({'pointer-events':'auto','color':''}); // omogućavanje Previous linka
+                            $('#next').css({'pointer-events':'auto','color':''}); // omogućavanje Previous linka
+                        }
+
+                        $('#tableBody tr').css('display','none'); // redovi se ne prikazuju
+                        $('.rowsGroup-' + currentPageNumber).css('display',''); // prikazuju se samo redovi sa izabrane strane
+
+                        if (currentPageNumber > 3 && currentPageNumber < (rowsGroup - 2)) {
+                            $('#a' + currentPageNumber).css('display','');
+                            if (currentPageNumber > 6 && currentPageNumber < (rowsGroup - 5)) {
+                                
+                            }
+                        }
+
+                        if (currentPageNumber == rowsGroup) {
+                            navigating = false;
+                        } else {
+                            navigating = true;
+                        }
+                    });
+
+                    $('#previous').off('click').click(function(){
+                        var i = parseInt($('.currentPage').text());
+                        var currentPageNumber = i - 1;
+                        if (i > 1) {
+                            $('#pages a').css({'pointer-events':'auto','color':''}).removeClass('currentPage').removeClass('previousPage').removeClass('nextPage'); // omogućavamo sve linkove
+
+                            $('#a' + (i-2)).addClass('previousPage');
+                            $('#a' + (i-1)).css({'pointer-events':'none','color':'gray'}).addClass('currentPage');
+                            $('#a' + i).addClass('nextPage');
+                        } 
+                        if (i == 2) {
+                            $('#previous').css({'pointer-events':'none','color':'gray'});
+                        }
+                        if (i == rowsGroup) {
+                            $('#next').css({'pointer-events':'auto','color':''});
+                        }
+
+                        $('#tableBody tr').css('display','none'); // redovi se ne prikazuju
+                        $('.rowsGroup-' + currentPageNumber).css('display',''); // prikazuju se samo redovi sa izabrane strane
+                        
+                        for (var j = 4; j < (rowsGroup - 2); j++) {
+                            $('#a' + j).css('display','none');
+                        }
+
+                        if (currentPageNumber > 2 && currentPageNumber < (rowsGroup - 1)) {
+
+                            $('#a' + currentPageNumber).css('display','');
+                            $('#a' + (currentPageNumber + 1)).css('display','');
+                            $('#a' + (currentPageNumber - 1)).css('display','');
+                            if (currentPageNumber < (rowsGroup - 4)) {
+                                $('#rightDots').remove();
+                                $('#leftDots').remove();
+                                $('#dots').remove(); // sklanjamo tačke koje su postavljene prilikom kreiranja strana
+                                $('#a' + (currentPageNumber + 1)).after('<span id="rightDots"> ... </span>');
+                                $('#a' + (currentPageNumber - 1)).before('<span id="leftDots"> ... </span>');
+                            }
+
+                            if (currentPageNumber <= 5) {
+                                $('#leftDots').css('display','none');
+                            }
+                        }
+
+                        if (currentPageNumber == rowsGroup) {
+                            navigating = false;
+                        } else {
+                            navigating = true;
+                        }
+                    });
+
+                    $('#next').off('click').click(function(){
+                        var i = parseInt($('.currentPage').text());
+                        var currentPageNumber = i + 1;
+                        if (i < rowsGroup) {
+                            $('#pages a').css({'pointer-events':'auto','color':''}).removeClass('currentPage').removeClass('previousPage').removeClass('nextPage'); // omogućavamo sve linkove
+
+                            $('#a' + (i+2)).addClass('nextPage');
+                            $('#a' + (i+1)).css({'pointer-events':'none','color':'gray'}).addClass('currentPage');
+                            $('#a' + i).addClass('previousPage');
+                        } 
+                        if (i == (rowsGroup - 1)) {
+                            $('#next').css({'pointer-events':'none','color':'gray'});
+                        }
+                        if (i == 1) {
+                            $('#previous').css({'pointer-events':'auto','color':''});
+                        }
+
+                        $('#tableBody tr').css('display','none'); // redovi se ne prikazuju
+                        $('.rowsGroup-' + currentPageNumber).css('display',''); // prikazuju se samo redovi sa izabrane strane
+
+                        for (var j = 4; j < (rowsGroup - 2); j++) {
+                            $('#a' + j).css('display','none');
+                        }
+//// OVO TREBA URADITI!!!!!
+                        if (currentPageNumber > 2 && currentPageNumber < (rowsGroup - 1)) {
+
+                            $('#a' + currentPageNumber).css('display','');
+                            $('#a' + (currentPageNumber + 1)).css('display','');
+                            $('#a' + (currentPageNumber - 1)).css('display','');
+                            if (currentPageNumber < (rowsGroup - 4)) {
+                                $('#rightDots').remove();
+                                $('#leftDots').remove();
+                                $('#dots').remove(); // sklanjamo tačke koje su postavljene prilikom kreiranja strana
+                                $('#a' + (currentPageNumber + 1)).after('<span id="rightDots"> ... </span>');
+                                $('#a' + (currentPageNumber - 1)).before('<span id="leftDots"> ... </span>');
+                            }
+
+                            if (currentPageNumber <= 5) {
+                                $('#leftDots').css('display','none');
+                            }
+                        }
+//////////////////////////////////////
+                        if (currentPageNumber == rowsGroup) {
+                            navigating = false;
+                        } else {
+                            navigating = true;
+                        }
+                    });
+
+                    if (start) {
+                        millisecondsStart = milliseconds;
+                        start = false;
+                        $('#start-stop').text('Stop');
+                        $('#container').css('background','red');
+                        $('#cell' + rowNumber + '-1').text(time);
+                        $('#message').text('Working hard!');
+                        $('#reset').attr('disabled','disabled'); // nakon starta se onemogućava kliktanje dugmeta reset 
+                    } else {
+                        millisecondsStop = milliseconds;
+                        millisecondsCycle = millisecondsStop - millisecondsStart;
+                        millisecondsTotal += millisecondsCycle;
+                        vremeRada = getTimeString(millisecondsCycle);
+                        ukupnoVremeRada = getTimeString(millisecondsTotal);
+                        start = true;
+                        $('#start-stop').text('Start');
+                        $('#container').css('background','lime');
+                        $('#cell' + rowNumber + '-2').text(time);
+                        $('#cell' + rowNumber + '-3').text(vremeRada);
+                        $('#totalWorkTime').text(ukupnoVremeRada);
+                        $('#message').text('Hardly working!');
+                        $('#reset').removeAttr('disabled'); // ponovno omogućavanje dugmeta reset
+                        rowNumber++;
+                    }
+                });
+
+                $('#reset').click(function(){ // uništavanje određenih struktura i resetovanje promenljivih
+                    $('#tableBody').empty();
+                    $('#totalWorkTime').empty();
+                    $('#pagination').empty();
+                    $('#reset').attr('disabled','disabled'); // reset onemogućen
+                    rowNumber = 1; // resetujemo sve promenljive na početne vrednosti
+                    rowsGroup = 1;
+                    millisecondsTotal = 0;
+                    createTable(tableRows);
+                    rowNumber = 1; // ponovo resetujemo promenljivu rowNumber jer je u f-ji createTable njena vretnost promenjena; za upisivanje podataka u tabelu potrebno je da rowNumber kreće od 1
+                    pageLinks = [];
+                });
+            });
+
+        }(jQuery));
+    </script>
+
+    <div id="container">
+
+        <table id="buttons">
+            <tbody>
+                <td style="width: 20%;"><button id="start-stop" type="button">Start</button></td>
+                <td id="message" style="width: 60%; text-align: center"></td>
+                <td style="width: 20%;"><button id="reset" type="button">Reset</button></td>
+            </tbody>
+        </table>
+
+        <table id="data">
+            <thead>
+                <tr>
+                    <th>R.b.</th>
+                    <th>Početak rada</th>
+                    <th>Kraj rada</th>
+                    <th>Vreme rada</th>
+                </tr>
+            </thead>
+            <tfoot>
+                <tr>
+                    <td colspan="3">Ukupno vreme rada:</td>
+                    <td id="totalWorkTime"></td>
+                </tr>
+            </tfoot>
+            <tbody id="tableBody">
+            </tbody>
+        </table>
+
+        <div id="pagination"></div>
+    </div>
+
+</body>
+
+</html>
